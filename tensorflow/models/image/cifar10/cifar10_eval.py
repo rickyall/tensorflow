@@ -38,8 +38,6 @@ from datetime import datetime
 import math
 import time
 
-import tensorflow.python.platform
-from tensorflow.python.platform import gfile
 import numpy as np
 import tensorflow as tf
 
@@ -132,19 +130,13 @@ def evaluate():
     # Restore the moving average version of the learned variables for eval.
     variable_averages = tf.train.ExponentialMovingAverage(
         cifar10.MOVING_AVERAGE_DECAY)
-    variables_to_restore = {}
-    for v in tf.all_variables():
-      if v in tf.trainable_variables():
-        restore_name = variable_averages.average_name(v)
-      else:
-        restore_name = v.op.name
-      variables_to_restore[restore_name] = v
+    variables_to_restore = variable_averages.variables_to_restore()
     saver = tf.train.Saver(variables_to_restore)
 
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.merge_all_summaries()
 
-    graph_def = tf.get_default_graph().as_graph_def()
+    graph_def = tf.get_default_graph().as_graph_def(add_shapes=True)
     summary_writer = tf.train.SummaryWriter(FLAGS.eval_dir,
                                             graph_def=graph_def)
 
@@ -157,9 +149,9 @@ def evaluate():
 
 def main(argv=None):  # pylint: disable=unused-argument
   cifar10.maybe_download_and_extract()
-  if gfile.Exists(FLAGS.eval_dir):
-    gfile.DeleteRecursively(FLAGS.eval_dir)
-  gfile.MakeDirs(FLAGS.eval_dir)
+  if tf.gfile.Exists(FLAGS.eval_dir):
+    tf.gfile.DeleteRecursively(FLAGS.eval_dir)
+  tf.gfile.MakeDirs(FLAGS.eval_dir)
   evaluate()
 
 
