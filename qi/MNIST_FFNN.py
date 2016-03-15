@@ -18,6 +18,10 @@ import tensorflow as tf
 import input_data
 mnist = input_data.read_data_sets("qi/data/MNIST_data/",False)
 
+#设置文件目录
+train_dir = 'qi/train/MNIST_FFNN/'#模型训练的保存路径
+
+
 #原始数据参数
 NUM_CLASSES = 10#mnist的类别，总共包括10类
 IMAGE_SIZE = 28#图像的大小
@@ -175,11 +179,18 @@ def run_training():
         train_op = training(loss_op,learning_rate)
         #添加评估OP
         eval_correct = evaluation(logits,labels_placeholder)
+        #建立一个总结的Op,记录训练时数据的状态
+        summary_op = tf.merge_all_summaries()
+        #建立一个保存点，下次再训练的时候重新载入
+        saver = tf.train.Saver()
         #建立一个会话
         sess = tf.Session()
         #初始化所有变量
         init = tf.initialize_all_variables()
         sess.run(init)
+
+        #输出模型图和训练过程中的总结
+        summary_writer = tf.train.SummaryWriter(train_dir,graph_def=sess.graph_def)
 
         #开始训练
         for step in xrange(max_steps):
@@ -192,6 +203,14 @@ def run_training():
             #输出每步训练的结果
             if step % 100 == 0:
                 print('Step %d:loss = %.2f(%.3f sec)'%(step,loss_value,duration))#打印损失函数值和消耗的时间
+                #更新事件文件
+                summary_str = sess.run(summary_op, feed_dict=feed_dict)
+                summary_writer.add_summary(summary_str, step)
+
+                #保存一个检查点
+                if(step + 1)%1000 == 0 or (step + 1) == max_steps:
+                    saver.save(sess,train_dir,global_step=step)
+
                 #评估模型训练集
                 print('Training Data Eval:')
                 do_eval(sess,eval_correct,images_placeholder,labels_placeholder,mnist.train)
