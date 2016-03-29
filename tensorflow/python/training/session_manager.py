@@ -163,8 +163,8 @@ class SessionManager(object):
         sess.run(init_op, feed_dict=init_feed_dict)
         not_ready = self._model_not_ready(sess)
         if not_ready:
-          raise RuntimeError("Init operation '%s' did not make model ready: %s",
-                             init_op.name, not_ready)
+          raise RuntimeError("Init operation '%s' did not make model ready: %s"
+                             % (init_op.name, not_ready))
     return sess
 
   def recover_session(self, master, saver=None, checkpoint_dir=None,
@@ -326,7 +326,7 @@ class SessionManager(object):
       try:
         sess.run(self._ready_op)
         return None
-      except errors.FailedPreconditionError, e:
+      except errors.FailedPreconditionError as e:
         if "uninitialized" not in str(e):
           logging.warning("Model not ready raised: %s", str(e))
           raise  e
