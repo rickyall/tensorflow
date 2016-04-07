@@ -192,4 +192,55 @@ def _add_loss_summaries(total_loss):
 
 def train(total_loss,global_step):
     """训练模型
+    Args:
+        total_loss:总的损失函数
+        global_step:计算训练的步数
+    Returns:
+        train_ops:返回训练的张量
     """
+    num_batches_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN/batch_size
+    decay_steps = int(num_batches_per_epoch * NUM_EPOCHS_PER_DECAY)
+
+    #调整训练速度
+    lr = tf.train.exponential_decay(INITIAL_LEARNING_RATE,global_step,decay_steps,LEARNING_RATE_DECAY_FACTOR,staircase=True)
+    tf.scalar_summary('learning_rate',r)
+
+    loss_averages_op = _add_loss_summaries(total_loss)
+
+    #极端梯度
+    with tf.control_dependencies([loss_averages_op]):
+        opt = tf.train.GradientDescentOptimizer(lr)
+        grads = opt.cumpute_gradients(total_loss)
+
+    #使用梯度
+    apply_gradient_op = opt.apply_gradients(grads,global_step=global_step)
+    #添加直方图
+    for grad, var in grads:
+        if grad is not None:
+            tf.histogram_summary(var.op.name+'/gradients',grad)
+
+    #追踪所有训练变量的移动平均值
+    variable_averages = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY,global_step)
+    variables_averages_op = variable_averages.apply(tf.trainable_variables())
+
+    with tf.control_dependencies([apply_gradient_op,variables_averages_op]):
+        train_op = tf.no_op(name='train')
+
+    return train_op
+
+def maybe_download_and_extract():
+    """下载数据"""
+    dest_directory = data_dir#保存目录
+    if not os.path.exists(dest_directory):
+        os.makedirs(dest_directory)
+    filename = DATA_URL.split('/')[-1]
+    filepath = os.path.join(dest_directory,filename)
+    if not os.path.exists(filepath):
+        def _progress(count,block_size,total_size):
+            sys.stdout.write('\r>>Downloading %s %.1f%%'%(filename,float(count * block_size) / float(total_size) * 100.0))
+            sys.stdout.flush()
+        filepath,_ = urllib.request.urlretrieve(DATA_URL,filepath,reporthook=_progress)
+        print()
+        statinfo = os.stat(filepath)
+        print('Successfully downloaded',filename,statinfo.st_size,'bytes.')
+        tarfile.open(filepath,'r:gz').extractall(dest_directory)
